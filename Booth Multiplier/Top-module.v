@@ -67,7 +67,7 @@ initial out = 0;
 always @(posedge clk) begin
     
      if(ldc)
-    out<=5'b10000;
+    out<=5'b01111;
     else if(dec)
     out<=out-1;
     
@@ -81,7 +81,7 @@ module BOOTHMULT(
     output qm1,eqz,q0
 
 );
-wire [15:0] A,M,Z,Q;
+wire signed [15:0] A,M,Z,Q;
 assign q0= Q[0];
 
 wire [4:0] count;
@@ -92,7 +92,7 @@ shift_reg AR(.clk(clk),.ld(lda),.din(Z),.dout(A),.lds(sft),.sin(A[15]),.clr(clra
 
 shift_reg QR(.clk(clk),.ld(ldq),.din(data_in),.dout(Q),.lds(sft),.sin(A[0]),.clr(clrq));
 
-dff Qm(.clk(clk),.clr(clrff),.din(Q[0]),.sftd(sft),.dout(qm1));
+dff Qm(.clk(clk),.clr(clrff),.din(q0),.sftd(sft),.dout(qm1));
 
 cntr c1(.clk(clk),.dec(decc),.ldc(ldcnt),.out(count));
 
@@ -114,14 +114,14 @@ reg [2:0] state,next_state;
 
 always @(*) begin
     case (state)
-        s0: next_state<=start?s1:s0;
-        s1:next_state<=s2;
-        s2:#2 next_state<=({q0,qm}==2'b01)?s3:({q0,qm}==2'b10)?s4:s5;
-        s3:next_state<=s5;
-        s4:next_state<=s5;
-        s5:next_state<=({q0,qm}==2'b01 && !eqz)?s3:({q0,qm}==2'b10 && !eqz)?s4:s6;
-        s6:next_state<=s6;
-        default: next_state<=s0;
+        s0: next_state=start?s1:s0;
+        s1:next_state=s2;
+        s2:next_state=({q0,qm}==2'b01)?s3:({q0,qm}==2'b10)?s4:s5;
+        s3:next_state=s5;
+        s4:next_state=s5;
+      s5:next_state=(eqz==1)?s6:({q0,qm}==2'b01 )?s3:s4;
+        s6:next_state=s6;
+        default: next_state=s0;
     endcase
     
 end
@@ -131,63 +131,19 @@ always @(posedge clk) begin
     
 end
 
-always @(*) begin
-    done=0;
-    lda=0;
-    ldq=0;
-    ldm=0;
-    decc=0;
-    clra=0;
-    sft=0;
-    clrff=0;
-    addsub=0;
-    clrq=0;
-    ldcnt=0;
-    case (state)
-        s1: begin
-            clra=1;
-            ldcnt=1;
-            ldm=1;
-            clrff=1;
-        end 
-        s2:begin
-             clra=0;
-            ldcnt=0;
-            ldm=0;
-            clrff=0;
-            ldq=1;
-        end
-        s3:begin
-            lda=1;
-            addsub=1;
-            ldq=0;
-            sft=0;
-            decc=0;
-        end
-        s4:begin
-            lda=1;
-            addsub=0;
-            ldq=0;
-            sft=0;
-            decc=0;
-        end
-        s5:begin
-            lda=0;
-            addsub=0;
-            ldq=0;
-            sft=1;
-            decc=1;
-        end
-
-        s6:begin
-            done=1;
-        end
-
-        
-    endcase
+  assign lda     = ((state == s3)||(state == s4))?1:0;
+  assign clra    =  (state == s0)?1:0;
+  assign sft    =  (state == s5)?1:0;
+  assign ldq     =  (state == s2)?1:0;
+  assign clrq    =  (state == s0)?1:0;
+	
+  assign ldm     =  (state == s1)?1:0;
+  assign clrff   =  (state == s0)?1:0;
+  assign addsub     =  (state == s3)?1:0;
     
-    
-end
+  assign decc    =  (state == s5)?1:0;
+  assign ldcnt =  (state == s1)?1:0; 
+  assign done    =  (state == s6)?1:0;	
 
 endmodule
 
@@ -217,5 +173,7 @@ module BOOTH_TOP(
         .clrq(clrq), .ldcnt(ldcnt)
     );
 endmodule
+
+
 
 
